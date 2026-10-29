@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Generated MIDI/audio/output
+*.mid
+*.midi
+*.wav
+*.mp3
+output/
+outputs/
+
+# Generated Python/runtime files
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# LLM training artifacts
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# Hugging Face / model caches
+.cache/
+huggingface/
+models/
+checkpoints/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.log
+
+# Dataset files generated locally
+# Keep the source generator, but don't accidentally commit huge generated datasets.
+# Remove these two lines if you specifically want the datasets in Git.
+final_dataset.jsonl
+train.jsonl
+validation.jsonl
+test_generated.jsonl

@@ -1,0 +1,5 @@
+PARALLEL
+
+    TRACK Melody
+        PLAY C4 quarter;
+    ENDTRACK

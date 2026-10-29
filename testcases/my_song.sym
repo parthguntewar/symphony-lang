@@ -1,0 +1,26 @@
+TEMPO 120;
+
+PARALLEL
+    TRACK ViolinTrack
+        INSTRUMENT Violin;
+        PLAY C4 quarter;
+        PLAY E4 quarter;
+        PLAY G4 quarter;
+        PLAY C5 whole;
+    ENDTRACK
+
+    TRACK FluteTrack
+        INSTRUMENT Flute;
+        PLAY G5 quarter;
+        PLAY B5 quarter;
+        PLAY D6 quarter;
+        PLAY G6 whole;
+    ENDTRACK
+
+    TRACK CelloTrack
+        INSTRUMENT Cello;
+        PLAY C3 half;
+        PLAY G2 half;
+        PLAY C3 whole;
+    ENDTRACK
+ENDPARALLEL

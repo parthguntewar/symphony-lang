@@ -1,0 +1,20 @@
+PARALLEL
+    TRACK Piano
+        PLAY C4 quarter;
+    ENDTRACK
+    TRACK Bass
+        PLAY C2 quarter;
+    ENDTRACK
+    TRACK Drums
+        PLAY C1 quarter;
+    ENDTRACK
+ENDPARALLEL
+
+PARALLEL
+    TRACK Flute
+        PLAY E4 quarter;
+    ENDTRACK
+    TRACK Cello
+        PLAY G2 quarter;
+    ENDTRACK
+ENDPARALLEL

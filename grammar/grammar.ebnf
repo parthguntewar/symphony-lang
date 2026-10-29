@@ -1,0 +1,88 @@
+SymphonyLang - Formal Grammar (EBNF)
+======================================
+
+program        := statement* ;
+
+statement      := varDecl
+                | assignStmt
+                | ifStmt
+                | forStmt
+                | funcDecl
+                | funcCall ";"
+                | playStmt
+                | restStmt
+                | tempoStmt
+                | instrumentStmt
+                | trackStmt
+                | repeatStmt
+                | includeStmt
+                | returnStmt ;
+
+(* ---------- Variables & Expressions ---------- *)
+
+varDecl        := "LET" IDENTIFIER "=" expression ";" ;
+
+assignStmt     := IDENTIFIER "=" expression ";" ;
+
+expression     := term (("+" | "-") term)* ;
+term           := factor (("*" | "/") factor)* ;
+factor         := NUMBER
+                | IDENTIFIER
+                | "(" expression ")"
+                | comparison ;
+
+comparison     := expression (("<" | ">" | "<=" | ">=" | "==" | "!=") expression) ;
+
+(* ---------- Control Flow ---------- *)
+
+ifStmt         := "IF" comparison "THEN" statement*
+                   ("ELSE" statement*)?
+                   "ENDIF" ;
+
+forStmt        := "FOR" IDENTIFIER "=" expression "TO" expression statement* "ENDFOR" ;
+
+repeatStmt     := "REPEAT" expression statement* "ENDREPEAT" ;
+
+(* ---------- Functions ---------- *)
+
+funcDecl       := "FUNCTION" IDENTIFIER "(" paramList? ")" statement* "ENDFUNCTION" ;
+
+paramList      := IDENTIFIER ("," IDENTIFIER)* ;
+
+funcCall       := "CALL" IDENTIFIER "(" argList? ")" ;
+
+argList        := expression ("," expression)* ;
+
+returnStmt     := "RETURN" expression? ";" ;
+
+(* ---------- Music Statements ---------- *)
+
+playStmt       := "PLAY" noteExpr durationExpr ";" ;
+
+restStmt       := "REST" durationExpr ";" ;
+
+tempoStmt      := "TEMPO" expression ";" ;
+
+instrumentStmt := "INSTRUMENT" IDENTIFIER ";" ;
+
+trackStmt      := "TRACK" IDENTIFIER statement* "ENDTRACK" ;
+
+includeStmt    := "INCLUDE" STRING ";" ;
+
+noteExpr       := NOTE_LITERAL | IDENTIFIER ;
+durationExpr   := DURATION_LITERAL | IDENTIFIER ;
+
+(* ---------- Lexical Tokens ---------- *)
+
+IDENTIFIER     := letter (letter | digit | "_")* ;
+NUMBER         := digit+ ;
+STRING         := '"' character* '"' ;
+NOTE_LITERAL   := ("A".."G") ("#" | "b")? digit ;      (* e.g. C4, D#5, Bb3 *)
+DURATION_LITERAL := "whole" | "half" | "quarter" | "eighth" | "sixteenth" ;
+
+KEYWORDS       := LET IF THEN ELSE ENDIF FOR TO ENDFOR
+                   FUNCTION ENDFUNCTION CALL RETURN
+                   PLAY REST TEMPO INSTRUMENT TRACK ENDTRACK
+                   REPEAT ENDREPEAT INCLUDE ;
+
+COMMENT        := "#" character* newline ;

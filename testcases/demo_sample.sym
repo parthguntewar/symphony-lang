@@ -1,0 +1,18 @@
+TEMPO 60+60;
+INSTRUMENT Piano;
+
+FUNCTION Riff(len)
+    PLAY C4 quarter;
+    PLAY D4 quarter;
+ENDFUNCTION
+
+LET x = 4;
+IF x > 2 THEN
+    CALL Riff(1);
+ELSE
+    PLAY D4 quarter;
+ENDIF
+
+FOR i = 1 TO 2
+    PLAY G4 eighth;
+ENDFOR

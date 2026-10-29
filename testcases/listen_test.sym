@@ -1,0 +1,16 @@
+TEMPO 100;
+INSTRUMENT Piano;
+
+PLAY C4 quarter;
+PLAY D4 quarter;
+PLAY E4 quarter;
+PLAY F4 quarter;
+PLAY G4 half;
+
+REST quarter;
+
+PLAY G4 quarter;
+PLAY F4 quarter;
+PLAY E4 quarter;
+PLAY D4 quarter;
+PLAY C4 whole;

@@ -1,0 +1,15 @@
+PARALLEL
+
+    TRACK Melody
+        PLAY C4 quarter;
+    ENDTRACK
+
+    TRACK Bass
+        PLAY C3 quarter;
+    ENDTRACK
+
+    TRACK Drums
+        PLAY C2 quarter;
+    ENDTRACK
+
+ENDPARALLEL

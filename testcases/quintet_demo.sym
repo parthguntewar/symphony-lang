@@ -1,0 +1,68 @@
+TEMPO 110;
+
+PARALLEL
+    TRACK Piano
+        INSTRUMENT Piano;
+        PLAY C4 quarter;
+        PLAY E4 quarter;
+        PLAY G4 quarter;
+        PLAY E4 quarter;
+        PLAY A4 quarter;
+        PLAY C5 quarter;
+        PLAY F4 quarter;
+        PLAY A4 quarter;
+        PLAY B4 quarter;
+        PLAY D5 quarter;
+        PLAY G4 quarter;
+        PLAY B4 quarter;
+        PLAY C4 whole;
+    ENDTRACK
+
+    TRACK Violin
+        INSTRUMENT Violin;
+        PLAY E4 half;
+        PLAY G4 half;
+        PLAY C5 half;
+        PLAY A4 half;
+        PLAY D5 half;
+        PLAY B4 half;
+        PLAY C5 whole;
+    ENDTRACK
+
+    TRACK Flute
+        INSTRUMENT Flute;
+        PLAY G5 quarter;
+        PLAY A5 quarter;
+        PLAY B5 quarter;
+        PLAY C6 quarter;
+        PLAY E6 half;
+        PLAY D6 half;
+        PLAY D6 quarter;
+        PLAY E6 quarter;
+        PLAY F6 quarter;
+        PLAY G6 quarter;
+        PLAY C6 whole;
+    ENDTRACK
+
+    TRACK Cello
+        INSTRUMENT Cello;
+        PLAY C3 half;
+        PLAY G2 half;
+        PLAY A2 half;
+        PLAY F2 half;
+        PLAY G2 half;
+        PLAY B2 half;
+        PLAY C3 whole;
+    ENDTRACK
+
+    TRACK Trumpet
+        INSTRUMENT Trumpet;
+        REST whole;
+        REST half;
+        PLAY G4 quarter;
+        PLAY C5 quarter;
+        PLAY D5 half;
+        PLAY G4 half;
+        PLAY C5 whole;
+    ENDTRACK
+ENDPARALLEL

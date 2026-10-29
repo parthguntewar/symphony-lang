@@ -1,0 +1,7 @@
+FUNCTION Riff(n, d)
+    PLAY n d;
+ENDFUNCTION
+
+CALL Riff(C4, quarter);
+CALL Riff(E4, eighth);
+CALL Riff(G4, half);

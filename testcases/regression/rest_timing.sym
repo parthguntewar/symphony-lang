@@ -1,0 +1,5 @@
+TEMPO 120;
+
+PLAY C4 quarter;
+REST quarter;
+PLAY D4 quarter;
