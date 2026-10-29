@@ -4,7 +4,29 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>SymphonyLang Studio</title>
+    <script>
+      (function() {
+        try {
+          if (window.location.search) {
+            var params = new URLSearchParams(window.location.search);
+            var trackingKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+            var hadTracking = false;
+            trackingKeys.forEach(function(key) {
+              if (params.has(key)) {
+                params.delete(key);
+                hadTracking = true;
+              }
+            });
+            if (hadTracking) {
+              var newSearch = params.toString();
+              var cleanUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+              window.history.replaceState(null, '', cleanUrl);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

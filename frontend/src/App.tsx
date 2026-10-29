@@ -111,6 +111,28 @@ export default function App() {
 
   const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
 
+  // Clean URL tracking query parameters (e.g. ?utm_source=chatgpt.com) using History API without reload
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.location.search) {
+        const searchParams = new URLSearchParams(window.location.search);
+        const trackingKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+        let changed = false;
+        for (const key of trackingKeys) {
+          if (searchParams.has(key)) {
+            searchParams.delete(key);
+            changed = true;
+          }
+        }
+        if (changed) {
+          const newSearch = searchParams.toString();
+          const cleanUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+          window.history.replaceState(null, '', cleanUrl);
+        }
+      }
+    } catch {}
+  }, []);
+
   // Persist chats
   useEffect(() => {
     try {
