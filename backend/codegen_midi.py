@@ -37,6 +37,7 @@ from instruments import (
     canonicalize_instrument,
     get_instrument_program,
     is_percussion,
+    get_percussion_note,
 )
 
 ARITH_OPS = {
@@ -51,8 +52,11 @@ COMPARE_OPS = {
 
 
 def note_name_to_midi(note):
-    """Converts a note like 'C4' or 'D#5' or 'Bb3' into a MIDI note number (0-127).
-    Formula: (octave + 1) * 12 + base_semitone + accidental."""
+    """Converts a note like 'C4' or 'D#5' or a General MIDI percussion alias ('Kick', 'Snare')
+    into a MIDI note number (0-127). Formula: (octave + 1) * 12 + base_semitone + accidental."""
+    perc = get_percussion_note(note)
+    if perc is not None:
+        return perc
     m = re.match(r"^([A-G])([#b]?)(\d)$", note)
     if not m:
         raise ValueError(f"Invalid note format: {note}")
@@ -92,7 +96,7 @@ class MIDICodeGenerator:
                 assigned_channel = channel
             elif name in self.channel_map:
                 assigned_channel = self.channel_map[name]
-            elif is_percussion(name):
+            elif is_percussion(name) or "drum" in name.lower() or "percussion" in name.lower():
                 assigned_channel = 9
             else:
                 used_channels = {st["channel"] for st in self.track_states.values()}
@@ -173,8 +177,18 @@ class MIDICodeGenerator:
         canonical = canonicalize_instrument(name)
         if is_percussion(canonical):
             self.channel = 9
+            self.track.append(
+                Message(
+                    'program_change',
+                    channel=9,
+                    program=0,
+                    time=self.pending_delay
+                )
+            )
+            self.pending_delay = 0
             if self.current_track_name is not None:
                 self.track_states[self.current_track_name]["instrument"] = canonical
+                self.track_states[self.current_track_name]["channel"] = 9
             self._sync_track_state()
             return
 

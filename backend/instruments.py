@@ -6,6 +6,7 @@ Defines the supported instruments and their verified General MIDI program number
 (0-indexed). Also handles canonicalization, case handling, and instrument validation.
 """
 
+import re
 from typing import Optional, Dict, Set
 
 # General MIDI melodic instrument program numbers (0-indexed).
@@ -28,6 +29,79 @@ INSTRUMENT_PROGRAMS: Dict[str, int] = {
 PERCUSSION_INSTRUMENTS: Set[str] = {
     "Drums",
 }
+
+# General MIDI percussion note mapping (Standard Drum Kit on MIDI Channel 9 / Channel 10 1-based)
+GM_PERCUSSION_NOTE_MAP: Dict[str, int] = {
+    "acousticbassdrum": 35,
+    "bassdrum": 36,
+    "kick": 36,
+    "sidestick": 37,
+    "acousticsnare": 38,
+    "snare": 38,
+    "handclap": 39,
+    "clap": 39,
+    "electricsnare": 40,
+    "lowfloortom": 41,
+    "closedhihat": 42,
+    "hihat": 42,
+    "highfloortom": 43,
+    "pedalhihat": 44,
+    "lowtom": 45,
+    "openhihat": 46,
+    "lowmidtom": 47,
+    "himidtom": 48,
+    "crashcymbal1": 49,
+    "crash": 49,
+    "crashcymbal": 49,
+    "hightom": 50,
+    "ridecymbal1": 51,
+    "ride": 51,
+    "ridecymbal": 51,
+    "chinesecymbal": 52,
+    "ridebell": 53,
+    "tambourine": 54,
+    "splashcymbal": 55,
+    "cowbell": 56,
+    "crashcymbal2": 57,
+    "vibraslap": 58,
+    "ridecymbal2": 59,
+}
+
+# Reverse lookup: GM percussion note number -> readable name
+GM_PERCUSSION_NUMBER_TO_NAME: Dict[int, str] = {
+    35: "Acoustic Bass Drum",
+    36: "Bass Drum (Kick)",
+    37: "Side Stick",
+    38: "Acoustic Snare",
+    39: "Hand Clap",
+    40: "Electric Snare",
+    41: "Low Floor Tom",
+    42: "Closed Hi-Hat",
+    43: "High Floor Tom",
+    44: "Pedal Hi-Hat",
+    45: "Low Tom",
+    46: "Open Hi-Hat",
+    47: "Low-Mid Tom",
+    48: "Hi-Mid Tom",
+    49: "Crash Cymbal",
+    50: "High Tom",
+    51: "Ride Cymbal",
+    52: "Chinese Cymbal",
+    53: "Ride Bell",
+    54: "Tambourine",
+    55: "Splash Cymbal",
+    56: "Cowbell",
+    57: "Crash Cymbal 2",
+    58: "Vibraslap",
+    59: "Ride Cymbal 2",
+}
+
+def get_percussion_note(name: str) -> Optional[int]:
+    """Resolves a percussion instrument name/alias to its General MIDI note number."""
+    if not isinstance(name, str):
+        return None
+    cleaned = re.sub(r"[^a-zA-Z0-9]", "", name).lower()
+    return GM_PERCUSSION_NOTE_MAP.get(cleaned)
 
 # All valid canonical instrument names
 VALID_INSTRUMENTS: Set[str] = set(INSTRUMENT_PROGRAMS.keys()) | PERCUSSION_INSTRUMENTS

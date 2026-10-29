@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Sparkles,
   Music,
@@ -119,11 +119,7 @@ export default function App() {
   }, [chats]);
 
   // Fetch health on mount
-  useEffect(() => {
-    fetchHealth();
-  }, []);
-
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch('/api/health');
       if (res.ok) {
@@ -133,7 +129,11 @@ export default function App() {
     } catch (err) {
       console.warn('Backend connection pending:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+  }, [fetchHealth]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -230,10 +230,19 @@ export default function App() {
     setIsGenerating(true);
 
     try {
+      // Find the most recent code in the conversation to support modification requests
+      const lastCode = activeChat.messages
+        .slice()
+        .reverse()
+        .find((m) => m.code)?.code;
+
       const genRes = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptToSend }),
+        body: JSON.stringify({
+          prompt: promptToSend,
+          previous_code: lastCode,
+        }),
       });
 
       if (!genRes.ok) {
@@ -243,6 +252,33 @@ export default function App() {
       const genData = await genRes.json();
       const generatedCode: string = genData.code;
       const explanation: string = genData.explanation;
+      const isComposition: boolean = !!genData.is_composition && !!generatedCode;
+
+      if (!isComposition) {
+        // Conversational response (greeting, polite redirection, or limitation note) - no compilation
+        setChats((prev) =>
+          prev.map((c) => {
+            if (c.id === activeChatId) {
+              const updated = c.messages.map((m) => {
+                if (m.id === assistantMsgId) {
+                  return {
+                    ...m,
+                    content: explanation,
+                    code: undefined,
+                    compilation: undefined,
+                    provider: genData.provider,
+                    isTemplateFallback: genData.is_template_fallback,
+                  };
+                }
+                return m;
+              });
+              return { ...c, messages: updated };
+            }
+            return c;
+          })
+        );
+        return;
+      }
 
       // Update assistant message with generated code
       setChats((prev) =>
@@ -585,7 +621,7 @@ export default function App() {
             </div>
           ) : (
             /* Conversation Stream */
-            <div className="max-w-3xl mx-auto space-y-6 pb-28">
+            <div className="max-w-3xl mx-auto space-y-6 pb-52 md:pb-60">
               {activeChat.messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -625,7 +661,7 @@ export default function App() {
 
                         {/* Generated Code Block */}
                         {msg.code && (
-                          <div className="rounded-xl border border-zinc-700/80 bg-[#18181b] overflow-hidden shadow-lg">
+                          <div className="rounded-xl border border-zinc-700/80 bg-[#18181b] overflow-hidden shadow-lg w-full min-w-0">
                             {/* Code Header */}
                             <div className="flex items-center justify-between px-4 py-2 bg-[#202024] border-b border-zinc-800 text-xs">
                               <div className="flex items-center gap-2">
@@ -689,7 +725,7 @@ export default function App() {
                             </div>
 
                             {/* Code lines */}
-                            <pre className="p-4 text-xs font-mono overflow-x-auto text-zinc-200 leading-relaxed bg-[#141416]">
+                            <pre className="p-4 text-xs font-mono overflow-x-auto text-zinc-200 leading-relaxed bg-[#141416] w-full min-w-0">
                               <code>{msg.code}</code>
                             </pre>
                           </div>

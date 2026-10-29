@@ -53,7 +53,9 @@ from instruments import (
     INSTRUMENT_PROGRAMS,
     canonicalize_instrument,
     is_valid_instrument,
+    GM_PERCUSSION_NUMBER_TO_NAME,
 )
+from composer import process_user_intent_and_compose
 
 OUTPUTS_DIR = BASE_DIR / "outputs"
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -74,12 +76,14 @@ app.add_middleware(
 class GenerateRequest(BaseModel):
     prompt: str
     conversation_history: Optional[List[Dict[str, str]]] = None
+    previous_code: Optional[str] = None
 
 class GenerateResponse(BaseModel):
-    code: str
+    code: Optional[str] = None
     explanation: str
     is_template_fallback: bool
     provider: str
+    is_composition: bool = True
 
 class CompileRequest(BaseModel):
     source_code: str
@@ -112,21 +116,27 @@ class CompileResponse(BaseModel):
 
 # ----------------- LLM Generation & Fallback -----------------
 
-SYSTEM_PROMPT = """You are an expert music composer and compiler engineer for SymphonyLang, a domain-specific programming language that compiles to playable MIDI music.
+SYSTEM_PROMPT = """You are SymphonyLang Studio, an expert AI music programming assistant.
+
+### Behavior & Intent Handling:
+1. If the user is simply greeting you (e.g. "hi", "hello", "hey", "thanks"), reply with a brief, friendly greeting explaining that you compose and compile music using SymphonyLang. DO NOT output any code for simple greetings.
+2. If the user asks an unrelated general query (e.g. general trivia, math, weather), politely redirect them toward music composition. DO NOT output code for unrelated queries.
+3. When the user requests to compose, generate, or modify music:
+   - Generate valid SymphonyLang source code enclosed in ```symphonylang ... ``` followed by a brief 2-3 sentence musical breakdown.
+   - For multi-instrument compositions, always use PARALLEL with TRACK blocks for each instrument, starting simultaneously at beat zero.
+
+### Supported General MIDI Instruments:
+Piano, Guitar, Violin, Flute, Bass, Trumpet, Cello, Clarinet, Saxophone, Synth, Organ, Drums.
 
 ### SymphonyLang Syntax Rules:
 1. Every statement ends with a semicolon (;).
 2. Comments begin with #.
 3. Statements:
-   - TEMPO <bpm>; (e.g. TEMPO 120;)
-   - INSTRUMENT <Name>; (Supported instruments: Piano, Guitar, Violin, Flute, Bass, Trumpet, Cello, Clarinet, Saxophone, Synth, Organ, Drums)
-   - PLAY <Note> <Duration>; (Note format: C3 to B5, e.g. C4, D#4, Eb4, G5; Durations: whole, half, quarter, eighth, sixteenth)
+   - TEMPO <bpm>;
+   - INSTRUMENT <Name>;
+   - PLAY <Note> <Duration>; (Note format: C2 to B6; Durations: whole, half, quarter, eighth, sixteenth)
    - REST <Duration>;
-   - LET <var> = <expression>;
-   - <var> = <expression>;
-   - IF <comparison> THEN ... ELSE ... ENDIF
    - FOR <var> = <start> TO <end> ... ENDFOR
-   - REPEAT <count> ... ENDREPEAT
    - FUNCTION <Name>(<params>) ... ENDFUNCTION
    - CALL <Name>(<args>);
    - PARALLEL
@@ -135,10 +145,19 @@ SYSTEM_PROMPT = """You are an expert music composer and compiler engineer for Sy
            ...
        ENDTRACK
      ENDPARALLEL
-4. Return clean, syntactically valid SymphonyLang code enclosed in ```symphonylang ... ``` followed by a brief 2-3 sentence musical breakdown.
 """
 
-def generate_via_openai(prompt: str, api_key: str) -> Optional[tuple[str, str]]:
+def parse_llm_markdown(content: str) -> tuple[Optional[str], str, bool]:
+    code_match = re.search(r"```(?:symphonylang|sym)?\s*([\s\S]*?)```", content, re.IGNORECASE)
+    if code_match:
+        code = code_match.group(1).strip()
+        explanation = content.replace(code_match.group(0), "").strip()
+        return code, explanation or "Generated SymphonyLang musical composition.", True
+    else:
+        # No code block generated - conversational response
+        return None, content.strip(), False
+
+def generate_via_openai(prompt: str, api_key: str) -> Optional[tuple[Optional[str], str, bool]]:
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -159,7 +178,7 @@ def generate_via_openai(prompt: str, api_key: str) -> Optional[tuple[str, str]]:
         content = data["choices"][0]["message"]["content"]
         return parse_llm_markdown(content)
 
-def generate_via_groq(prompt: str, api_key: str) -> Optional[tuple[str, str]]:
+def generate_via_groq(prompt: str, api_key: str) -> Optional[tuple[Optional[str], str, bool]]:
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -180,7 +199,7 @@ def generate_via_groq(prompt: str, api_key: str) -> Optional[tuple[str, str]]:
         content = data["choices"][0]["message"]["content"]
         return parse_llm_markdown(content)
 
-def generate_via_gemini(prompt: str, api_key: str) -> Optional[tuple[str, str]]:
+def generate_via_gemini(prompt: str, api_key: str) -> Optional[tuple[Optional[str], str, bool]]:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -193,181 +212,6 @@ def generate_via_gemini(prompt: str, api_key: str) -> Optional[tuple[str, str]]:
         data = json.loads(resp.read().decode("utf-8"))
         content = data["candidates"][0]["content"]["parts"][0]["text"]
         return parse_llm_markdown(content)
-
-def parse_llm_markdown(content: str) -> tuple[str, str]:
-    code_match = re.search(r"```(?:symphonylang|sym)?\s*([\s\S]*?)```", content, re.IGNORECASE)
-    if code_match:
-        code = code_match.group(1).strip()
-        explanation = content.replace(code_match.group(0), "").strip()
-        return code, explanation or "Generated SymphonyLang musical composition."
-    else:
-        # Fallback if raw code was output
-        return content.strip(), "Generated SymphonyLang code."
-
-def generate_fallback_composition(prompt: str) -> tuple[str, str]:
-    """
-    Intelligent musical composition engine that creates valid, musically sound
-    SymphonyLang code tailored to the user's prompt.
-    """
-    p = prompt.lower()
-
-    # Extract tempo if mentioned
-    tempo = 110
-    bpm_match = re.search(r"(\d{2,3})\s*(?:bpm|tempo)", p)
-    if bpm_match:
-        tempo = int(bpm_match.group(1))
-    elif "calm" in p or "ambient" in p or "relax" in p or "slow" in p:
-        tempo = 72
-    elif "energetic" in p or "fast" in p or "upbeat" in p or "rush" in p:
-        tempo = 132
-    elif "cheerful" in p or "happy" in p or "bright" in p or "joy" in p:
-        tempo = 118
-
-    # Extract instrument
-    chosen_instrument = "Piano"
-    for inst in VALID_INSTRUMENTS:
-        if inst.lower() in p:
-            chosen_instrument = inst
-            break
-
-    # Determine genre/style
-    if "calm" in p or "ambient" in p or "atmospheric" in p:
-        code = f"""# Calm Ambient Soundtrack
-TEMPO {tempo};
-
-PARALLEL
-    TRACK AtmospherePad
-        INSTRUMENT {canonicalize_instrument("Flute") if chosen_instrument == "Piano" else chosen_instrument};
-        PLAY C4 whole;
-        PLAY G4 whole;
-        PLAY A4 whole;
-        PLAY F4 whole;
-    ENDTRACK
-
-    TRACK SubBass
-        INSTRUMENT Cello;
-        PLAY C3 whole;
-        PLAY E3 whole;
-        PLAY F2 whole;
-        PLAY G2 whole;
-    ENDTRACK
-ENDPARALLEL
-"""
-        explanation = f"Crafted a tranquil ambient arrangement at {tempo} BPM featuring sustained melodic phrases on {chosen_instrument} over supportive Cello harmonies."
-
-    elif "energetic" in p or "fast" in p or "intense" in p or tempo >= 125:
-        inst = chosen_instrument if chosen_instrument != "Piano" else "Synth"
-        code = f"""# Energetic Driving Melody
-TEMPO {tempo};
-INSTRUMENT {inst};
-
-FUNCTION Riff(repeats)
-    FOR step = 1 TO repeats
-        PLAY C4 sixteenth;
-        PLAY E4 sixteenth;
-        PLAY G4 sixteenth;
-        PLAY C5 eighth;
-        PLAY B4 eighth;
-        PLAY G4 eighth;
-    ENDFOR
-ENDFUNCTION
-
-CALL Riff(2);
-
-FOR loop = 1 TO 2
-    PLAY A4 eighth;
-    PLAY C5 eighth;
-    PLAY E5 quarter;
-    PLAY D5 eighth;
-    PLAY B4 eighth;
-    PLAY C5 quarter;
-ENDFOR
-"""
-        explanation = f"Composed an energetic {inst} melody at {tempo} BPM using an optimized rhythmic motif function and 16th-note driving motion."
-
-    elif "piano" in p or "cheerful" in p or "happy" in p:
-        code = f"""# Cheerful Piano Melody
-TEMPO {tempo};
-INSTRUMENT Piano;
-
-# Main lyrical melody
-PLAY C4 quarter;
-PLAY E4 quarter;
-PLAY G4 quarter;
-PLAY C5 half;
-
-PLAY B4 eighth;
-PLAY A4 eighth;
-PLAY G4 quarter;
-PLAY E4 quarter;
-PLAY G4 half;
-
-# Playful looping cadence
-FOR i = 1 TO 2
-    PLAY F4 eighth;
-    PLAY A4 eighth;
-    PLAY C5 eighth;
-    PLAY B4 eighth;
-    PLAY G4 quarter;
-ENDFOR
-
-PLAY C4 whole;
-"""
-        explanation = f"Composed an uplifting piano piece at {tempo} BPM built around a bright C major arpeggio and a buoyant cadence loop."
-
-    elif "violin" in p or "strings" in p:
-        code = f"""# Expressive Violin Composition
-TEMPO {tempo};
-INSTRUMENT Violin;
-
-FUNCTION Phrase(octaveOffset)
-    PLAY D4 quarter;
-    PLAY F#4 quarter;
-    PLAY A4 half;
-    PLAY B4 quarter;
-    PLAY A4 quarter;
-    PLAY F#4 half;
-ENDFUNCTION
-
-CALL Phrase(1);
-
-PLAY G4 quarter;
-PLAY B4 quarter;
-PLAY D5 half;
-PLAY C#5 whole;
-"""
-        explanation = f"Structured an expressive Violin motif in D major at {tempo} BPM with harmonic phrasing and call-and-response contour."
-
-    else:
-        # Default balanced motif
-        code = f"""# Symphony Motif
-TEMPO {tempo};
-INSTRUMENT {chosen_instrument};
-
-FUNCTION MelodyTheme()
-    PLAY C4 quarter;
-    PLAY D4 quarter;
-    PLAY E4 quarter;
-    PLAY G4 half;
-    PLAY E4 eighth;
-    PLAY D4 eighth;
-    PLAY C4 half;
-ENDFUNCTION
-
-CALL MelodyTheme();
-
-FOR rep = 1 TO 2
-    PLAY G4 eighth;
-    PLAY A4 eighth;
-    PLAY G4 eighth;
-    PLAY E4 eighth;
-    PLAY C4 quarter;
-ENDFOR
-
-REST quarter;
-PLAY C5 whole;
-"""
-        explanation = f"Crafted a balanced musical composition for {chosen_instrument} at {tempo} BPM demonstrating SymphonyLang functions, loops, and cadence."
 
     return code.strip(), explanation
 
@@ -452,7 +296,8 @@ def extract_timeline_from_midi(midi_file_path: str):
                 else:
                     current_inst = PROGRAM_TO_NAME.get(msg.program, 'Piano')
             elif msg.type == 'note_on' and msg.velocity > 0:
-                active_notes[msg.note] = (abs_tick, current_inst, msg.channel)
+                inst_to_record = 'Drums' if msg.channel == 9 else current_inst
+                active_notes[msg.note] = (abs_tick, inst_to_record, msg.channel)
             elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
                 if msg.note in active_notes:
                     start_tick, inst, channel = active_notes.pop(msg.note)
@@ -463,9 +308,12 @@ def extract_timeline_from_midi(midi_file_path: str):
                     end_sec = tick_to_sec(abs_tick)
                     dur_sec = max(0.02, end_sec - start_sec)
 
-                    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-                    octave = (msg.note // 12) - 1
-                    note_name = f"{note_names[msg.note % 12]}{octave}"
+                    if channel == 9 or inst == 'Drums':
+                        note_name = GM_PERCUSSION_NUMBER_TO_NAME.get(msg.note, f"Drum ({msg.note})")
+                    else:
+                        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                        octave = (msg.note // 12) - 1
+                        note_name = f"{note_names[msg.note % 12]}{octave}"
 
                     events.append(NoteTimelineEvent(
                         kind="PLAY",
@@ -597,6 +445,7 @@ def generate_code(req: GenerateRequest):
                     explanation=res[1],
                     is_template_fallback=False,
                     provider="OpenAI",
+                    is_composition=res[2],
                 )
         elif groq_key:
             res = generate_via_groq(req.prompt, groq_key)
@@ -606,6 +455,7 @@ def generate_code(req: GenerateRequest):
                     explanation=res[1],
                     is_template_fallback=False,
                     provider="Groq",
+                    is_composition=res[2],
                 )
         elif gemini_key:
             res = generate_via_gemini(req.prompt, gemini_key)
@@ -615,12 +465,25 @@ def generate_code(req: GenerateRequest):
                     explanation=res[1],
                     is_template_fallback=False,
                     provider="Google Gemini",
+                    is_composition=res[2],
                 )
     except Exception as e:
         print(f"LLM API call failed: {e}. Falling back to composition engine.")
 
-    # Fallback template composition
-    code, explanation = generate_fallback_composition(req.prompt)
+    # Intelligent intent handling & composition engine
+    code, explanation, is_composition, is_fallback = process_user_intent_and_compose(
+        req.prompt, req.previous_code
+    )
+
+    if not is_composition:
+        return GenerateResponse(
+            code=None,
+            explanation=explanation,
+            is_template_fallback=is_fallback,
+            provider="Built-in SymphonyLang Engine",
+            is_composition=False,
+        )
+
     fallback_note = (
         f"{explanation}\n\n"
         "*(Note: Generated via SymphonyLang's built-in intelligent composition engine. "
@@ -629,8 +492,9 @@ def generate_code(req: GenerateRequest):
     return GenerateResponse(
         code=code,
         explanation=fallback_note,
-        is_template_fallback=True,
+        is_template_fallback=is_fallback,
         provider="Built-in SymphonyLang Engine",
+        is_composition=True,
     )
 
 @app.post("/api/compile", response_model=CompileResponse)

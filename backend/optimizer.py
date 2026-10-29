@@ -88,13 +88,16 @@ def constant_propagation(instructions):
     Tracks which temps are known to hold a constant literal value.
     Wherever that temp is used later, replaces it with the literal directly.
 
-    Example:
-        t1 = ASSIGN(120)
-        TEMPO t1
-    becomes:
-        t1 = ASSIGN(120)      <- still here (removed by dead_code_elimination)
-        TEMPO 120
+    Temps are only propagated if they are strictly single-assignment
+    (assigned exactly once across the instruction sequence), preventing
+    variables or loop counters from freezing into infinite loops.
     """
+    # Count assignments per result. Only temps assigned exactly once are candidates.
+    assignment_counts = {}
+    for instr in instructions:
+        if instr.result and _is_temp(instr.result):
+            assignment_counts[instr.result] = assignment_counts.get(instr.result, 0) + 1
+
     const_map = {}  # temp name -> literal value
     new_instructions = []
     substitutions = 0
@@ -111,8 +114,9 @@ def constant_propagation(instructions):
         new_instr = Instruction(instr.opcode, new_args, instr.result)
         new_instructions.append(new_instr)
 
-        # Record newly known constants (only for temps - see _is_temp docstring).
+        # Record newly known constants (strictly for single-assignment temps).
         if (instr.opcode == 'ASSIGN' and _is_temp(instr.result)
+                and assignment_counts.get(instr.result, 0) == 1
                 and len(new_args) == 1 and _is_number(new_args[0])):
             const_map[instr.result] = new_args[0]
 

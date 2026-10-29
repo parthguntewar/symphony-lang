@@ -82,11 +82,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   // Reset visual progress if another audio player starts
   useEffect(() => {
-    if (!isCurrentActive && playbackState !== 'stopped') {
-      setPlaybackState('stopped');
-      updateVisualProgress(0, 0, derivedTotalDuration);
+    if (!isCurrentActive) {
+      setPlaybackState((prev) => {
+        if (prev !== 'stopped') {
+          updateVisualProgress(0, 0, derivedTotalDuration);
+          return 'stopped';
+        }
+        return prev;
+      });
     }
-  }, [isCurrentActive, playbackState, derivedTotalDuration, updateVisualProgress]);
+  }, [isCurrentActive, derivedTotalDuration, updateVisualProgress]);
 
   // Set initial duration on mount
   useEffect(() => {
@@ -325,3 +330,4 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     </div>
   );
 };
+

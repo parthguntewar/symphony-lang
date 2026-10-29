@@ -6,8 +6,15 @@ channel allocation, bytecode/VM, and regression verification.
 """
 
 import os
+import sys
 import unittest
 import mido
+
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 from instruments import (
     INSTRUMENT_PROGRAMS,

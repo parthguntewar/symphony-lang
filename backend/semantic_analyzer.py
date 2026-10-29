@@ -31,6 +31,7 @@ from instruments import (
     VALID_INSTRUMENTS,
     is_valid_instrument,
     canonicalize_instrument,
+    get_percussion_note,
 )
 
 
@@ -270,10 +271,13 @@ class SemanticAnalyzer:
 
     def _check_note(self, value, line):
         """A note is valid if it matches the note pattern (e.g. C4, D#5),
+        OR if it's a recognized General MIDI percussion name (e.g. Kick, Snare, HiHat),
         OR if it's a variable that has already been declared."""
         if NOTE_PATTERN.match(value):
             return
         if self.symtab.is_declared(value):
+            return
+        if get_percussion_note(value) is not None:
             return
         self._error(
             f"'{value}' is not a valid note (e.g. C4, D#5) "
