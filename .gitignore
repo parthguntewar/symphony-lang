@@ -44,6 +44,12 @@ Thumbs.db
 *.tmp
 *.log
 
+# Environment and Node
+.env
+.env.*
+node_modules/
+backend/outputs/
+
 # Dataset files generated locally
 # Keep the source generator, but don't accidentally commit huge generated datasets.
 # Remove these two lines if you specifically want the datasets in Git.
